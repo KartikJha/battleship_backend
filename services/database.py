@@ -56,8 +56,8 @@ class Database:
     @classmethod
     async def update_game(cls, game: Game) -> bool:
         result = await cls.client.battleship.games.update_one(
-            {"grid_id": game.grid_id},
-            {"$set": game.dict()}
+            {"id": game["id"]},
+            {"$set": game}
         )
         return result.modified_count > 0
     
