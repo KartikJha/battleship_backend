@@ -50,7 +50,7 @@ class Database:
     
     @classmethod
     async def create_game(cls, game: Game) -> Game:
-        await cls.client.battleship.games.insert_one(game.dict())
+        await cls.client.battleship.games.insert_one(game)
         return game
 
     @classmethod

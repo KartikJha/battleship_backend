@@ -22,16 +22,6 @@ app.add_middleware(
 # In-memory storage for active connections
 active_connections: Dict[str, Dict[str, WebSocket]] = {}  # grid_id -> {player_id -> ws}
 
-# @app.on_event("startup")
-# async def startup_event():
-#     await Database.connect_db("mongodb://localhost:27017")
-#     # Create a unique index on the name field in the players collection
-#     await Database.get_collection("players").create_index("name", unique=True)
-
-# @app.on_event("shutdown")
-# async def shutdown_event():
-#     await Database.close_db()
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await Database.connect_db("mongodb://localhost:27017")
@@ -68,17 +58,17 @@ async def websocket_endpoint(websocket: WebSocket, player_id: str, grid_id: str)
         game_id = game["id"] if game else None
         if not game:
             # Create new game
-            game = Game(
-                grid_id=grid_id,
-                players=[player_id],
-                boards={},
-                state=GameState.WAITING,
-                current_turn=None,
-                winner=None,
-                score=None
-            )
+            game = {
+                "grid_id": grid_id,
+                "players": [player_id],
+                "boards": {},
+                "state": GameState.WAITING,
+                "current_turn": None,
+                "winner": None,
+                "score": None
+            }
             created_game = await Database.create_game(game)
-            game_id = created_game.id
+            game_id = created_game["id"]
         elif game['state'] == GameState.WAITING:
             # Join existing game
             game['players'].append(player_id)
@@ -87,11 +77,11 @@ async def websocket_endpoint(websocket: WebSocket, player_id: str, grid_id: str)
             # Initialize boards
             for p_id in game["players"]:
                 is_berserk = await _get_player_mode(p_id)
-                game['boards'][p_id] = Board(
-                    cells=GameService.create_ship_configuration(),
-                    missile_count=GameService.calculate_missile_count(is_berserk),
-                    is_berserk=is_berserk
-                )
+                game['boards'][p_id] = {
+                    "cells": GameService.create_ship_configuration(),
+                    "missile_count": GameService.calculate_missile_count(is_berserk),
+                    "is_berserk": is_berserk
+                }
             
             game['current_turn'] = game['players'][0]
             await Database.update_game(game)
@@ -99,7 +89,7 @@ async def websocket_endpoint(websocket: WebSocket, player_id: str, grid_id: str)
             # Notify players
             await broadcast_to_grid(grid_id, {
                 "type": "game_started",
-                "game": game.dict()
+                "game": game
             })
         
         while True:
@@ -111,12 +101,12 @@ async def websocket_endpoint(websocket: WebSocket, player_id: str, grid_id: str)
         if not active_connections[grid_id]:
             del active_connections[grid_id]
         
-        player.is_online = False
+        player['is_online'] = False
         await Database.update_player(player)
         
 async def find_game_with_one_player(games):
     for game in games:
-        if len(game.players) == 1:
+        if len(game['players']) == 1:
             return game
     return None
 
@@ -124,30 +114,30 @@ async def handle_game_message(grid_id: str, player_id: str, data: dict, game_id:
     game = await Database.get_game(game_id)
     
     if data["type"] == "shot":
-        if game.current_turn != player_id:
+        if game['current_turn'] != player_id:
             return
         
-        target_id = next(p for p in game.players if p != player_id)
+        target_id = next(p for p in game['players'] if p != player_id)
         position = data["position"]
         
         hit, destroyed, ship_destroyed = GameService.process_shot(
-            game.boards[target_id], 
+            game['boards'][target_id], 
             position
         )
         
-        game.boards[player_id].missile_count -= 1
+        game['boards'][player_id]['missile_count'] -= 1
         
         if not hit:
-            game.current_turn = target_id
+            game['current_turn'] = target_id
         
-        if all(cell.destroyed for cell in game.boards[target_id].cells.values()):
-            game.state = GameState.FINISHED
-            game.winner = player_id
-            game.score = game.boards[player_id].missile_count
+        if all(cell['destroyed'] for cell in game['boards'][target_id]['cells'].values()):
+            game['state'] = GameState.FINISHED
+            game['winner'] = player_id
+            game['score'] = game['boards'][player_id]['missile_count']
             
             # Update player score
             player = await Database.get_player(player_id)
-            player.score += game.score
+            player['score'] += game['score']
             await Database.update_player(player)
         
         await Database.update_game(game)
@@ -158,22 +148,22 @@ async def handle_game_message(grid_id: str, player_id: str, data: dict, game_id:
             "hit": hit,
             "destroyed": destroyed,
             "ship_destroyed": ship_destroyed,
-            "game": game.dict()
+            "game": game
         })
     
     elif data["type"] == "new_game":
         if game["state"] == GameState.FINISHED:
-            new_game = Game(
-                grid_id=grid_id,
-                players=[player_id],
-                boards={},
-                state=GameState.WAITING
-            )
+            new_game = {
+                "grid_id": grid_id,
+                "players": [player_id],
+                "boards": {},
+                "state": GameState.WAITING
+            }
             await Database.create_game(new_game)
             
             await broadcast_to_grid(grid_id, {
                 "type": "new_game_created",
-                "game": new_game.dict()
+                "game": new_game
             })
 
 async def broadcast_to_grid(grid_id: str, message: dict):
