@@ -13,7 +13,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://7685-2401-4900-1c68-46f2-b0a9-ce30-5845-df0c.ngrok-free.app"],  # React app's address
+    allow_origins=["http://localhost:3000", "https://7685-2401-4900-1c68-46f2-b0a9-ce30-5845-df0c.ngrok-free.app", "https://452d-2401-4900-1c66-1db4-1cbd-f8ce-d6c3-aa2f.ngrok-free.app"],  # React app's address
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
@@ -55,7 +55,7 @@ async def websocket_endpoint(websocket: WebSocket, player_id: str, grid_id: str)
         
         games = await Database.get_games(grid_id)
         game = next(filter(lambda g: len(g['players']) == 1, games), None)
-        game_id = game["id"] if game else None
+        game_id = game["_id"] if game else None
         if not game:
             # Create new game
             game = {
@@ -68,7 +68,7 @@ async def websocket_endpoint(websocket: WebSocket, player_id: str, grid_id: str)
                 "score": None
             }
             created_game = await Database.create_game(game)
-            game_id = created_game["id"]
+            game_id = created_game["_id"]
         elif game['state'] == GameState.WAITING:
             # Join existing game
             game['players'].append(player_id)
@@ -78,14 +78,15 @@ async def websocket_endpoint(websocket: WebSocket, player_id: str, grid_id: str)
             for p_id in game["players"]:
                 is_berserk = await _get_player_mode(p_id)
                 game['boards'][p_id] = {
-                    "cells": GameService.create_ship_configuration(),
+                    "cells": GameService.create_ship_configuration(int(game["grid_id"]) ** 2),
                     "missile_count": GameService.calculate_missile_count(is_berserk),
                     "is_berserk": is_berserk
                 }
             
             game['current_turn'] = game['players'][0]
             await Database.update_game(game)
-            
+            game['id'] = str(game["_id"]) 
+            del game["_id"]
             # Notify players
             await broadcast_to_grid(grid_id, {
                 "type": "game_started",

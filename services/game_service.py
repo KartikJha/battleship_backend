@@ -5,29 +5,60 @@ import random
 
 class GameService:
     @staticmethod
-    def create_ship_configuration() -> Dict[str, Cell]:
+    def create_ship_configuration(board_size: int) -> List[List[str]]:
         cells = {}
-        ships = [
-            {"size": (1, 3), "type": CellType.P},
-            {"size": (2, 2), "type": CellType.Q},
-            {"size": (1, 4), "type": CellType.P}
-        ]
+        grid_size = int(board_size ** 0.5)
+        ships = GameService._generate_ships(board_size)
         
         for ship in ships:
-            position = GameService._find_random_position(cells, ship["size"])
+            position = GameService._find_random_position(cells, ship["size"], grid_size)
             for pos in position:
-                cells[pos] = Cell(type=ship["type"])
+                cells[pos] = Cell(type=ship["type"], health=ship["health"])
         
-        return cells
+        # Create a 2D array to represent the board
+        board = [["sea" for _ in range(grid_size)] for _ in range(grid_size)]
+        
+        for row in range(grid_size):
+            for col in range(grid_size):
+                pos = f"{chr(65 + row)}{col + 1}"
+                if pos in cells:
+                    cell = cells[pos]
+                    board[row][col] = f"{cell.type}{GameService.get_initial_health(cell.type)}0"  # Initial health and hit status
+                else:
+                    board[row][col] = "sea"
+        
+        return board
+    
+    @staticmethod
+    def get_initial_health(cell_type: CellType) -> int:
+        if cell_type == CellType.Q:
+            return 2
+        elif cell_type == CellType.P:
+            return 1
+        else:
+            raise ValueError("Invalid cell type")
+
+    @staticmethod
+    def _generate_ships(board_size: int) -> List[Dict[str, Tuple[int, int]]]:
+        # Proportionally determine the number and size of ships based on board size
+        num_ships = max(1, board_size // 10)
+        ships = []
+        for _ in range(num_ships):
+            ship_type = random.choice([CellType.P, CellType.Q])
+            ship_size = (random.randint(1, 3), random.randint(1, 3))
+            health = 1 if ship_type == CellType.P else 2
+            ships.append({"size": ship_size, "type": ship_type, "health": health})
+        return ships
 
     @staticmethod
     def _find_random_position(
         existing_cells: Dict[str, Cell], 
-        size: Tuple[int, int]
+        size: Tuple[int, int],
+        grid_size: int
     ) -> List[str]:
         while True:
-            start_row = random.randint(0, 8)
-            start_col = random.randint(0, 8)
+            start_row = random.randint(0, grid_size - size[0])
+            start_col = random.randint(0, grid_size - size[1])
             is_horizontal = random.choice([True, False])
             
             positions = []
@@ -39,7 +70,7 @@ class GameService:
                         pos = f"{chr(65 + start_row + j)}{start_col + i + 1}"
                     
                     if (pos in existing_cells or 
-                        not GameService._is_valid_position(pos)):
+                        not GameService._is_valid_position(pos, grid_size)):
                         break
                     positions.append(pos)
             
@@ -47,11 +78,11 @@ class GameService:
                 return positions
 
     @staticmethod
-    def _is_valid_position(pos: str) -> bool:
+    def _is_valid_position(pos: str, grid_size: int) -> bool:
         return (
             len(pos) >= 2 and
-            'A' <= pos[0] <= 'I' and
-            1 <= int(pos[1:]) <= 9
+            'A' <= pos[0] < chr(65 + grid_size) and
+            1 <= int(pos[1:]) <= grid_size
         )
 
     @staticmethod
