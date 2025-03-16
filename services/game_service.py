@@ -5,6 +5,16 @@ import random
 
 class GameService:
     @staticmethod
+    def are_all_ships_destroyed(board: Dict) -> bool:
+        for row in board['cells']:
+            for cell in row:
+                if cell.startswith('P') or cell.startswith('Q'):
+                    health = int(cell[1])
+                    if health > 0:
+                        return False
+        return True
+    
+    @staticmethod
     def create_ship_configuration(board_size: int) -> List[List[str]]:
         cells = {}
         grid_size = int(board_size ** 0.5)
@@ -86,25 +96,39 @@ class GameService:
         )
 
     @staticmethod
-    def calculate_missile_count(is_berserk: bool) -> int:
-        base_count = 81  # 9x9 grid
+    def calculate_missile_count(board_size: int, is_berserk: bool) -> int:
+        base_count = board_size  # Proportional to board size
         return base_count // 2 if is_berserk else base_count
 
     @staticmethod
-    def process_shot(board: Board, position: str) -> Tuple[bool, bool, bool]:
-        cell = board.cells.get(position)
-        if not cell:
-            return False, False, False
+    def process_shot(board: Dict, position: str) -> Tuple[bool, bool]:
+        row = ord(position[0]) - 65  # Convert 'A' to 0, 'B' to 1, etc.
+        col = int(position[1:]) - 1  # Convert '1' to 0, '2' to 1, etc.
         
-        cell.hits += 1
-        if cell.type == CellType.P:
-            cell.destroyed = cell.hits >= 1
-        else:  # CellType.Q
-            cell.destroyed = cell.hits >= 2
-            
-        ship_destroyed = all(
-            c.destroyed for c in board.cells.values()
-            if c.type == cell.type
-        )
+        if row < 0 or row >= len(board['cells']) or col < 0 or col >= len(board['cells'][0]):
+            return False, False  # Invalid position
+
+        # board['missile_count'] -= 1
         
-        return True, cell.destroyed, ship_destroyed
+        cell = board['cells'][row][col]
+        
+        if cell == 'sea':
+            board['cells'][row][col] = 'sea1'  # Mark sea as hit
+            return False, False
+
+        cell_type = cell[0]
+        health = int(cell[1])
+        hit_flag = int(cell[2])
+
+        if health == 0 and hit_flag == 1:
+            return False, False  # Already hit
+
+        health -= 1
+        hit_flag = 1
+        new_cell = f"{cell_type}{health}{hit_flag}"
+        board['cells'][row][col] = new_cell
+        # board['missile_count'] += 1
+        
+        cell_destroyed = health == 0
+        
+        return True, cell_destroyed

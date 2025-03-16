@@ -13,7 +13,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://7685-2401-4900-1c68-46f2-b0a9-ce30-5845-df0c.ngrok-free.app", "https://452d-2401-4900-1c66-1db4-1cbd-f8ce-d6c3-aa2f.ngrok-free.app"],  # React app's address
+    allow_origins=["http://localhost:3000", "https://7685-2401-4900-1c68-46f2-b0a9-ce30-5845-df0c.ngrok-free.app", "https://452d-2401-4900-1c66-1db4-1cbd-f8ce-d6c3-aa2f.ngrok-free.app", "https://7f47-2401-4900-1c66-1db4-1623-809-21ca-70ac.ngrok-free.app"],  # React app's address
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
@@ -79,7 +79,7 @@ async def websocket_endpoint(websocket: WebSocket, player_id: str, grid_id: str)
                 is_berserk = await _get_player_mode(p_id)
                 game['boards'][p_id] = {
                     "cells": GameService.create_ship_configuration(int(game["grid_id"]) ** 2),
-                    "missile_count": GameService.calculate_missile_count(is_berserk),
+                    "missile_count": GameService.calculate_missile_count(int(game["grid_id"]) ** 2, is_berserk),
                     "is_berserk": is_berserk
                 }
             
@@ -121,17 +121,19 @@ async def handle_game_message(grid_id: str, player_id: str, data: dict, game_id:
         target_id = next(p for p in game['players'] if p != player_id)
         position = data["position"]
         
-        hit, destroyed, ship_destroyed = GameService.process_shot(
+        hit, destroyed = GameService.process_shot(
             game['boards'][target_id], 
             position
         )
         
-        game['boards'][player_id]['missile_count'] -= 1
+        # game['boards'][player_id]['missile_count'] -= 1
         
         if not hit:
             game['current_turn'] = target_id
+            game['boards'][player_id]['missile_count'] -= 1
         
-        if all(cell['destroyed'] for cell in game['boards'][target_id]['cells'].values()):
+
+        if GameService.are_all_ships_destroyed(game['boards'][target_id]):
             game['state'] = GameState.FINISHED
             game['winner'] = player_id
             game['score'] = game['boards'][player_id]['missile_count']
@@ -140,15 +142,20 @@ async def handle_game_message(grid_id: str, player_id: str, data: dict, game_id:
             player = await Database.get_player(player_id)
             player['score'] += game['score']
             await Database.update_player(player)
+            
+        if game['boards'][player_id]['missile_count'] == 0 and game['boards'][target_id]['missile_count'] == 0:
+            game['state'] = GameState.FINISHED
+            game['winner'] = 'draw'
+            game['score'] = 0
         
         await Database.update_game(game)
-        
+        game['id'] = str(game["_id"]) 
+        del game["_id"]
         await broadcast_to_grid(grid_id, {
             "type": "shot_result",
             "position": position,
             "hit": hit,
             "destroyed": destroyed,
-            "ship_destroyed": ship_destroyed,
             "game": game
         })
     
@@ -179,3 +186,4 @@ async def _get_player_mode(player_id: str) -> bool:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, ws="auto")
+    # uvicorn.run("ws:app", host="0.0.0.0", port=8001, reload=True, ws="auto")

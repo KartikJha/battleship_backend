@@ -45,7 +45,7 @@ class Database:
 
     @classmethod
     async def get_game(cls, game_id: str) -> List[Game]:
-        game = cls.client.battleship.games.find_one({"_id": ObjectId(game_id)})
+        game = await cls.client.battleship.games.find_one({"_id": ObjectId(game_id)})
         return game
     
     @classmethod
