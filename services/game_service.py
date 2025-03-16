@@ -8,7 +8,7 @@ class GameService:
     def create_ship_configuration(board_size: int) -> List[List[str]]:
         cells = {}
         grid_size = int(board_size ** 0.5)
-        ships = GameService._generate_ships(board_size)
+        ships = GameService._generate_ships(board_size, grid_size)
         
         for ship in ships:
             position = GameService._find_random_position(cells, ship["size"], grid_size)
@@ -39,13 +39,13 @@ class GameService:
             raise ValueError("Invalid cell type")
 
     @staticmethod
-    def _generate_ships(board_size: int) -> List[Dict[str, Tuple[int, int]]]:
+    def _generate_ships(board_size: int, grid_size) -> List[Dict[str, Tuple[int, int]]]:
         # Proportionally determine the number and size of ships based on board size
         num_ships = max(1, board_size // 10)
         ships = []
         for _ in range(num_ships):
             ship_type = random.choice([CellType.P, CellType.Q])
-            ship_size = (random.randint(1, 3), random.randint(1, 3))
+            ship_size = (random.randint(1, grid_size), random.randint(1, grid_size))
             health = 1 if ship_type == CellType.P else 2
             ships.append({"size": ship_size, "type": ship_type, "health": health})
         return ships
