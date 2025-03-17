@@ -24,7 +24,7 @@ active_connections: Dict[str, Dict[str, WebSocket]] = {}  # grid_id -> {player_i
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await Database.connect_db("mongodb://mongo:vPsTmbTLzXhRbXNJqOjMRDUaATXkExNN@yamanote.proxy.rlwy.net:38243")
+    await Database.connect_db("mongodb://localhost:27017")
     # Create a unique index on the name field in the players collection
     await Database.get_collection("players").create_index("name", unique=True)
     yield
