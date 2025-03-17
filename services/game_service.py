@@ -112,7 +112,7 @@ class GameService:
         
         cell = board['cells'][row][col]
         
-        if cell == 'sea':
+        if cell == 'sea' or cell == 'sea1':
             board['cells'][row][col] = 'sea1'  # Mark sea as hit
             return False, False
 
