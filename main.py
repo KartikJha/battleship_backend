@@ -13,7 +13,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://7685-2401-4900-1c68-46f2-b0a9-ce30-5845-df0c.ngrok-free.app", "https://452d-2401-4900-1c66-1db4-1cbd-f8ce-d6c3-aa2f.ngrok-free.app", "https://7f47-2401-4900-1c66-1db4-1623-809-21ca-70ac.ngrok-free.app"],  # React app's address
+    allow_origins=["http://localhost:3000", "https://7685-2401-4900-1c68-46f2-b0a9-ce30-5845-df0c.ngrok-free.app", "https://452d-2401-4900-1c66-1db4-1cbd-f8ce-d6c3-aa2f.ngrok-free.app", "https://7f47-2401-4900-1c66-1db4-1623-809-21ca-70ac.ngrok-free.app", "https://6c50-2401-4900-1c66-9dfd-894b-2737-78d8-b1fd.ngrok-free.app"],  # React app's address
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
